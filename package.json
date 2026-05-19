@@ -41,17 +41,29 @@
   ],
   "contributes": {
     "configuration": {
-      "title": "PureScript Analyzer",
+      "title": "Alexandrite",
       "properties": {
+        "alexandrite.serverPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path or command used to start the Alexandrite language server. If unset, Alexandrite searches PATH for alexandrite, purescript-alexandrite, then purescript-analyzer."
+        },
+        "alexandrite.sourceCommand": {
+          "type": "string",
+          "default": "",
+          "description": "Path or command used to obtain source files. This disables spago.lock integration."
+        },
         "purescriptAnalyzer.serverPath": {
           "type": "string",
-          "default": "purescript-analyzer",
-          "description": "Path or command used to start the PureScript Analyzer language server."
+          "default": "",
+          "description": "Deprecated. Use alexandrite.serverPath instead.",
+          "deprecationMessage": "Use alexandrite.serverPath instead."
         },
         "purescriptAnalyzer.sourceCommand": {
           "type": "string",
           "default": "",
-          "description": "Path or command used to obtain source files. This disables spago.lock integration."
+          "description": "Deprecated. Use alexandrite.sourceCommand instead.",
+          "deprecationMessage": "Use alexandrite.sourceCommand instead."
         }
       }
     }

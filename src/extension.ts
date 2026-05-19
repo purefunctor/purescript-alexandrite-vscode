@@ -10,10 +10,15 @@ import {
 let client: LanguageClient;
 
 export function activate(context: ExtensionContext) {
-  const config = workspace.getConfiguration("purescriptAnalyzer");
+  const config = workspace.getConfiguration("alexandrite");
+  const legacyConfig = workspace.getConfiguration("purescriptAnalyzer");
   const serverPath =
-    config.get<string>("serverPath")?.trim() || "purescript-analyzer";
-  const sourceCommand = config.get<string>("sourceCommand");
+    config.get<string>("serverPath")?.trim() ||
+    legacyConfig.get<string>("serverPath")?.trim() ||
+    "alexandrite";
+  const sourceCommand =
+    config.get<string>("sourceCommand")?.trim() ||
+    legacyConfig.get<string>("sourceCommand")?.trim();
 
   const args: string[] = [];
   if (sourceCommand) {
@@ -31,8 +36,8 @@ export function activate(context: ExtensionContext) {
   };
 
   client = new LanguageClient(
-    "purescript-analyzer",
-    "PureScript Analyzer",
+    "alexandrite",
+    "Alexandrite",
     serverOptions,
     clientOptions,
   );
