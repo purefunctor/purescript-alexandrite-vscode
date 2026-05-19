@@ -94,8 +94,8 @@ jobs:
           cargo install \
             --git https://github.com/purefunctor/purescript-alexandrite \
             --rev "${{ steps.alexandrite.outputs.revision }}" \
-            --package purescript-analyzer \
-            --locked
+            --locked \
+            purescript-analyzer
 
       - name: Configure Alexandrite path
         run: |
