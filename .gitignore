@@ -1,5 +1,8 @@
 dist
 node_modules
+out
+.env
+.vscode-test
 
 *.tsbuildinfo
 *.vsix

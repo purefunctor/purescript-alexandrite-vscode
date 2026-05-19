@@ -1,8 +1,17 @@
 .vscode/**
+.vscode-test/**
+.github/**
+.jj/**
+.env
+.env.example
+AGENTS.md
 **/*.ts
 **/*.map
 .gitignore
+out/**
+test/**
 **/tsconfig.json
+tsconfig.test.json
 **/tsconfig.base.json
 **/tsconfig.tsbuildinfo
 contributing.md
