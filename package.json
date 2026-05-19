@@ -26,6 +26,8 @@
     "compile-tests": "tsc -p tsconfig.test.json",
     "compile": "npm run check && node esbuild.js --production",
     "package": "npm run compile && npx @vscode/vsce package --no-dependencies",
+    "test": "npm run check && npm run compile && npm run test:unit && npm run test:integration",
+    "test:integration": "npm run compile && npm run compile-tests && node out/test/integration/runTest.js",
     "test:unit": "npm run compile-tests && vitest run",
     "watch": "node esbuild.js --watch",
     "format": "prettier -w src/**/*.ts tsconfig.json package.json esbuild.js"
@@ -33,6 +35,8 @@
   "devDependencies": {
     "@types/node": "^22.19.17",
     "@types/vscode": "1.98.0",
+    "@vscode/test-electron": "^2.5.2",
+    "dotenv": "^17.4.2",
     "esbuild": "^0.28.0",
     "prettier": "^3.8.3",
     "typescript": "^6.0.3",

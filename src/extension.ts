@@ -46,7 +46,7 @@ export function activate(context: ExtensionContext) {
     clientOptions,
   );
 
-  client.start();
+  return client.start();
 }
 
 export function deactivate(): Thenable<void> | undefined {
