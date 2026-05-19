@@ -1,4 +1,5 @@
 import { ExtensionContext, workspace } from "vscode";
+import { resolveConfiguration } from "./configuration";
 
 import {
   LanguageClient,
@@ -12,21 +13,24 @@ let client: LanguageClient;
 export function activate(context: ExtensionContext) {
   const config = workspace.getConfiguration("alexandrite");
   const legacyConfig = workspace.getConfiguration("purescriptAnalyzer");
-  const serverPath =
-    config.get<string>("serverPath")?.trim() ||
-    legacyConfig.get<string>("serverPath")?.trim() ||
-    "alexandrite";
-  const sourceCommand =
-    config.get<string>("sourceCommand")?.trim() ||
-    legacyConfig.get<string>("sourceCommand")?.trim();
+  const resolvedConfig = resolveConfiguration({
+    alexandrite: {
+      serverPath: config.get<string>("serverPath"),
+      sourceCommand: config.get<string>("sourceCommand"),
+    },
+    purescriptAnalyzer: {
+      serverPath: legacyConfig.get<string>("serverPath"),
+      sourceCommand: legacyConfig.get<string>("sourceCommand"),
+    },
+  });
 
   const args: string[] = [];
-  if (sourceCommand) {
-    args.push("--source-command", sourceCommand);
+  if (resolvedConfig.sourceCommand) {
+    args.push("--source-command", resolvedConfig.sourceCommand);
   }
 
   const serverOptions: ServerOptions = {
-    command: serverPath,
+    command: resolvedConfig.serverPath,
     args,
     transport: TransportKind.stdio,
   };
