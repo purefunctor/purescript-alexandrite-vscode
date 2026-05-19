@@ -1,12 +1,13 @@
 {
   "name": "purescript-analyzer",
-  "description": "PureScript Analyzer integration for Visual Studio Code",
+  "displayName": "Alexandrite",
+  "description": "Alexandrite integration for Visual Studio Code",
   "author": "Justin Garcia",
   "license": "BSD-3-Clause",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "repository": {
     "type": "git",
-    "url": "https://github.com/purefunctor/purescript-analyzer"
+    "url": "https://github.com/purefunctor/purescript-alexandrite-vscode"
   },
   "publisher": "purefunctor",
   "categories": [],
