@@ -27,7 +27,9 @@ async function main() {
 
   prepareWorkspace(workspacePath, alexandritePath);
 
-  const vscodeExecutablePath = await downloadAndUnzipVSCode();
+  const vscodeExecutablePath = await downloadAndUnzipVSCode(
+    process.env.VSCODE_VERSION,
+  );
   installExtension(vscodeExecutablePath, "nwolverson.language-purescript");
 
   await runTests({
