@@ -1,5 +1,4 @@
-import * as childProcess from "node:child_process";
-import * as crypto from "node:crypto";
+import { $ } from "bun";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -18,10 +17,10 @@ if (
   } else if (command === "verify") {
     verifyReleaseAssets();
   } else if (command === "upload") {
-    uploadReleaseAssets();
+    await uploadReleaseAssets();
   } else {
     throw new Error(
-      "Usage: node scripts/manage-release-assets.mjs prepare|verify|upload",
+      "Usage: bun scripts/manage-release-assets.mjs prepare|verify|upload",
     );
   }
 }
@@ -70,28 +69,13 @@ export function verifyReleaseAssets() {
   };
 }
 
-export function uploadReleaseAssets() {
+export async function uploadReleaseAssets() {
   const releaseTag = requireEnvironmentVariable("RELEASE_TAG");
   requireEnvironmentVariable("GH_REPO");
   requireEnvironmentVariable("GH_TOKEN");
 
   const { checksumPath, vsixPath } = verifyReleaseAssets();
-  const result = childProcess.spawnSync(
-    "gh",
-    ["release", "upload", releaseTag, vsixPath, checksumPath, "--clobber"],
-    {
-      env: process.env,
-      stdio: "inherit",
-    },
-  );
-
-  if (result.error) {
-    throw result.error;
-  }
-
-  if (result.status !== 0) {
-    throw new Error(`gh release upload exited with status ${result.status}.`);
-  }
+  await $`gh release upload ${releaseTag} ${vsixPath} ${checksumPath} --clobber`;
 }
 
 function findSingleFile(directory, extension) {
@@ -118,8 +102,7 @@ function readExpectedDigest(checksumPath) {
 }
 
 function sha256File(filePath) {
-  return crypto
-    .createHash("sha256")
+  return new Bun.CryptoHasher("sha256")
     .update(fs.readFileSync(filePath))
     .digest("hex");
 }

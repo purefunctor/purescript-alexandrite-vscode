@@ -1,4 +1,4 @@
-import * as childProcess from "node:child_process";
+import { $ } from "bun";
 
 import {
   requireEnvironmentVariable,
@@ -17,16 +17,8 @@ const platformAssets = process.env.RELEASE_PLATFORM_ASSETS
   ? JSON.parse(process.env.RELEASE_PLATFORM_ASSETS)
   : defaultPlatformAssets;
 
-const release = JSON.parse(
-  childProcess.execFileSync(
-    "gh",
-    ["api", `repos/${releaseRepository}/releases/latest`],
-    {
-      encoding: "utf8",
-      env: process.env,
-    },
-  ),
-);
+const release =
+  await $`gh api ${`repos/${releaseRepository}/releases/latest`}`.json();
 
 if (release.draft || release.prerelease) {
   throw new Error(

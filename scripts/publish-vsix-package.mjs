@@ -1,4 +1,4 @@
-import * as childProcess from "node:child_process";
+import { $ } from "bun";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -18,19 +18,4 @@ if (!fs.existsSync(vscePath)) {
   throw new Error(`Could not find publishing tool: ${vscePath}.`);
 }
 
-const result = childProcess.spawnSync(
-  vscePath,
-  ["publish", "--packagePath", vsixPath],
-  {
-    env: process.env,
-    stdio: "inherit",
-  },
-);
-
-if (result.error) {
-  throw result.error;
-}
-
-if (result.status !== 0) {
-  throw new Error(`vsce publish exited with status ${result.status}.`);
-}
+await $`${vscePath} publish --packagePath ${vsixPath}`;

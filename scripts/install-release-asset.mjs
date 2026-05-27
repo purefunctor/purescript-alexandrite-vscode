@@ -1,5 +1,4 @@
-import * as childProcess from "node:child_process";
-import * as crypto from "node:crypto";
+import { $, Glob } from "bun";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -28,11 +27,11 @@ fs.rmSync(extractDirectory, { force: true, recursive: true });
 fs.mkdirSync(downloadDirectory, { recursive: true });
 fs.mkdirSync(extractDirectory, { recursive: true });
 
-downloadAsset();
-verifyDigest(downloadPath, expectedDigest);
-extractAsset(downloadPath, extractDirectory);
+await downloadAsset();
+await verifyDigest(downloadPath, expectedDigest);
+await extractAsset(downloadPath, extractDirectory);
 
-const executablePath = findExecutable(extractDirectory, executableName);
+const executablePath = await findExecutable(extractDirectory, executableName);
 if (!executablePath) {
   throw new Error(`Could not find ${executableName} in ${assetName}.`);
 }
@@ -42,30 +41,16 @@ writeEnvironmentVariable(executableEnvironmentVariable, executablePath);
 
 console.log(`Installed ${releaseRepository} ${releaseTag} from ${assetName}.`);
 
-function downloadAsset() {
-  run("gh", [
-    "release",
-    "download",
-    releaseTag,
-    "--repo",
-    releaseRepository,
-    "--pattern",
-    assetName,
-    "--dir",
-    downloadDirectory,
-    "--clobber",
-  ]);
+async function downloadAsset() {
+  await $`gh release download ${releaseTag} --repo ${releaseRepository} --pattern ${assetName} --dir ${downloadDirectory} --clobber`;
 
   if (!fs.existsSync(downloadPath)) {
     throw new Error(`Expected gh to download ${assetName} to ${downloadPath}.`);
   }
 }
 
-function verifyDigest(filePath, expectedSha256) {
-  const actualDigest = crypto
-    .createHash("sha256")
-    .update(fs.readFileSync(filePath))
-    .digest("hex");
+async function verifyDigest(filePath, expectedSha256) {
+  const actualDigest = await sha256File(filePath);
 
   if (actualDigest !== expectedSha256) {
     throw new Error(
@@ -74,64 +59,54 @@ function verifyDigest(filePath, expectedSha256) {
   }
 }
 
-function extractAsset(filePath, outputDirectory) {
+async function extractAsset(filePath, outputDirectory) {
   if (filePath.endsWith(".zip")) {
-    if (process.platform === "win32") {
-      run(
-        "powershell.exe",
-        [
-          "-NoLogo",
-          "-NoProfile",
-          "-Command",
-          "$ErrorActionPreference = 'Stop'; Expand-Archive -LiteralPath $env:ALEXANDRITE_ARCHIVE_PATH -DestinationPath $env:ALEXANDRITE_EXTRACT_DIRECTORY",
-        ],
-        {
-          ALEXANDRITE_ARCHIVE_PATH: filePath,
-          ALEXANDRITE_EXTRACT_DIRECTORY: outputDirectory,
-        },
-      );
-    } else {
-      run("unzip", ["-q", filePath, "-d", outputDirectory]);
-    }
+    await extractZipAsset(filePath, outputDirectory);
     return;
   }
 
   if (filePath.endsWith(".tar.gz")) {
-    run("tar", ["-xzf", filePath, "-C", outputDirectory]);
+    await extractTarGzipAsset(filePath, outputDirectory);
     return;
   }
 
   throw new Error(`Unsupported Alexandrite asset: ${filePath}.`);
 }
 
-function run(command, args, environment = {}) {
-  const result = childProcess.spawnSync(command, args, {
-    env: { ...process.env, ...environment },
-    stdio: "inherit",
-  });
-  if (result.error) {
-    throw result.error;
-  }
-
-  if (result.status !== 0) {
-    throw new Error(`${command} exited with status ${result.status}.`);
+async function extractZipAsset(filePath, outputDirectory) {
+  if (process.platform === "win32") {
+    const expandArchiveCommand =
+      "$ErrorActionPreference = 'Stop'; Expand-Archive -LiteralPath $env:ALEXANDRITE_ARCHIVE_PATH -DestinationPath $env:ALEXANDRITE_EXTRACT_DIRECTORY";
+    await $`powershell.exe -NoLogo -NoProfile -Command ${expandArchiveCommand}`.env(
+      {
+        ...process.env,
+        ALEXANDRITE_ARCHIVE_PATH: filePath,
+        ALEXANDRITE_EXTRACT_DIRECTORY: outputDirectory,
+      },
+    );
+  } else {
+    await $`unzip -q ${filePath} -d ${outputDirectory}`;
   }
 }
 
-function findExecutable(directory, name) {
-  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-    const entryPath = path.join(directory, entry.name);
-    if (entry.isDirectory()) {
-      const result = findExecutable(entryPath, name);
-      if (result) {
-        return result;
-      }
-    }
+async function extractTarGzipAsset(filePath, outputDirectory) {
+  const archive = new Bun.Archive(await Bun.file(filePath).bytes());
+  await archive.extract(outputDirectory);
+}
 
-    if (entry.isFile() && entry.name === name) {
-      return entryPath;
+async function findExecutable(directory, name) {
+  const glob = new Glob("**/*");
+  for await (const filePath of glob.scan({ cwd: directory, onlyFiles: true })) {
+    if (path.basename(filePath) === name) {
+      return path.join(directory, filePath);
     }
   }
 
   return undefined;
+}
+
+async function sha256File(filePath) {
+  return new Bun.CryptoHasher("sha256")
+    .update(await Bun.file(filePath).bytes())
+    .digest("hex");
 }
