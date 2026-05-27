@@ -16,11 +16,13 @@ if (
     prepareReleaseAssets();
   } else if (command === "verify") {
     verifyReleaseAssets();
+  } else if (command === "download") {
+    await downloadReleaseAssets();
   } else if (command === "upload") {
     await uploadReleaseAssets();
   } else {
     throw new Error(
-      "Usage: bun scripts/manage-release-assets.mjs prepare|verify|upload",
+      "Usage: bun scripts/manage-release-assets.mjs prepare|verify|download|upload",
     );
   }
 }
@@ -76,6 +78,19 @@ export async function uploadReleaseAssets() {
 
   const { checksumPath, vsixPath } = verifyReleaseAssets();
   await $`gh release upload ${releaseTag} ${vsixPath} ${checksumPath} --clobber`;
+}
+
+export async function downloadReleaseAssets() {
+  const releaseTag = requireEnvironmentVariable("RELEASE_TAG");
+  requireEnvironmentVariable("GH_REPO");
+  requireEnvironmentVariable("GH_TOKEN");
+
+  fs.rmSync(releaseDirectory, { force: true, recursive: true });
+  fs.mkdirSync(releaseDirectory, { recursive: true });
+
+  const vsixPattern = "*.vsix";
+  const checksumPattern = "*.sha256";
+  await $`gh release download ${releaseTag} --pattern ${vsixPattern} --pattern ${checksumPattern} --dir ${releaseDirectory} --clobber`;
 }
 
 function findSingleFile(directory, extension) {

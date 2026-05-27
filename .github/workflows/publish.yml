@@ -52,13 +52,13 @@ jobs:
         run: bun scripts/validate-release.mjs
 
   package:
-    name: Package extension
+    name: Package and attach release assets
     runs-on: ubuntu-24.04
     needs: validate
 
     permissions:
       attestations: write
-      contents: read
+      contents: write
       id-token: write
 
     steps:
@@ -87,48 +87,13 @@ jobs:
       - name: Prepare release artifact
         run: bun scripts/manage-release-assets.mjs prepare
 
+      - name: Verify release artifact
+        run: bun scripts/manage-release-assets.mjs verify
+
       - name: Attest VSIX provenance
         uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4
         with:
           subject-path: release/*.vsix
-
-      - name: Upload workflow artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: vscode-extension-${{ needs.validate.outputs.release_tag }}
-          path: |
-            release/*.vsix
-            release/*.sha256
-          if-no-files-found: error
-          retention-days: 7
-
-  upload_release_assets:
-    name: Attach release assets
-    runs-on: ubuntu-24.04
-    needs:
-      - validate
-      - package
-
-    permissions:
-      contents: write
-
-    steps:
-      - name: Checkout release tag
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          ref: ${{ needs.validate.outputs.release_tag }}
-          persist-credentials: false
-
-      - name: Install Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-
-      - name: Download workflow artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          name: vscode-extension-${{ needs.validate.outputs.release_tag }}
-          path: release
 
       - name: Attach assets to release
         env:
@@ -142,7 +107,7 @@ jobs:
     runs-on: ubuntu-24.04
     needs:
       - validate
-      - upload_release_assets
+      - package
     environment: visual-studio-marketplace
 
     permissions:
@@ -168,11 +133,12 @@ jobs:
       - name: Install publishing toolchain
         run: npm ci --ignore-scripts
 
-      - name: Download workflow artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          name: vscode-extension-${{ needs.validate.outputs.release_tag }}
-          path: release
+      - name: Download release artifact
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.validate.outputs.release_tag }}
+        run: bun scripts/manage-release-assets.mjs download
 
       - name: Verify release artifact
         run: bun scripts/manage-release-assets.mjs verify
