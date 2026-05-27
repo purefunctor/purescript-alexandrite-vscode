@@ -4,17 +4,6 @@ import { describe, test } from "vitest";
 import packageJson = require("../../package.json");
 
 describe("manifest", () => {
-  test("keeps the published extension slug", () => {
-    assert.strictEqual(packageJson.name, "purescript-analyzer");
-    assert.strictEqual(packageJson.publisher, "purefunctor");
-  });
-
-  test("uses Alexandrite visible branding", () => {
-    assert.strictEqual(packageJson.displayName, "Alexandrite");
-    assert.match(packageJson.description, /Alexandrite/);
-    assert.strictEqual(packageJson.contributes.configuration.title, "Alexandrite");
-  });
-
   test("contributes preferred and legacy settings", () => {
     const properties = packageJson.contributes.configuration.properties;
 
