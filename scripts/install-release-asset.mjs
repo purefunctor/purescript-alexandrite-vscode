@@ -77,14 +77,19 @@ function verifyDigest(filePath, expectedSha256) {
 function extractAsset(filePath, outputDirectory) {
   if (filePath.endsWith(".zip")) {
     if (process.platform === "win32") {
-      run("powershell.exe", [
-        "-NoLogo",
-        "-NoProfile",
-        "-Command",
-        "Expand-Archive -LiteralPath $args[0] -DestinationPath $args[1]",
-        filePath,
-        outputDirectory,
-      ]);
+      run(
+        "powershell.exe",
+        [
+          "-NoLogo",
+          "-NoProfile",
+          "-Command",
+          "$ErrorActionPreference = 'Stop'; Expand-Archive -LiteralPath $env:ALEXANDRITE_ARCHIVE_PATH -DestinationPath $env:ALEXANDRITE_EXTRACT_DIRECTORY",
+        ],
+        {
+          ALEXANDRITE_ARCHIVE_PATH: filePath,
+          ALEXANDRITE_EXTRACT_DIRECTORY: outputDirectory,
+        },
+      );
     } else {
       run("unzip", ["-q", filePath, "-d", outputDirectory]);
     }
@@ -99,8 +104,11 @@ function extractAsset(filePath, outputDirectory) {
   throw new Error(`Unsupported Alexandrite asset: ${filePath}.`);
 }
 
-function run(command, args) {
-  const result = childProcess.spawnSync(command, args, { stdio: "inherit" });
+function run(command, args, environment = {}) {
+  const result = childProcess.spawnSync(command, args, {
+    env: { ...process.env, ...environment },
+    stdio: "inherit",
+  });
   if (result.error) {
     throw result.error;
   }
