@@ -1,18 +1,28 @@
+import * as childProcess from "node:child_process";
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { requireEnvironmentVariable } from "./write-workflow-state.mjs";
+
 const releaseDirectory = process.env.RELEASE_DIRECTORY?.trim() || "release";
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+if (
+  process.argv[1] &&
+  fileURLToPath(import.meta.url) === path.resolve(process.argv[1])
+) {
   const command = process.argv[2];
   if (command === "prepare") {
     prepareReleaseAssets();
   } else if (command === "verify") {
     verifyReleaseAssets();
+  } else if (command === "upload") {
+    uploadReleaseAssets();
   } else {
-    throw new Error("Usage: node scripts/manage-release-assets.mjs prepare|verify");
+    throw new Error(
+      "Usage: node scripts/manage-release-assets.mjs prepare|verify|upload",
+    );
   }
 }
 
@@ -60,6 +70,30 @@ export function verifyReleaseAssets() {
   };
 }
 
+export function uploadReleaseAssets() {
+  const releaseTag = requireEnvironmentVariable("RELEASE_TAG");
+  requireEnvironmentVariable("GH_REPO");
+  requireEnvironmentVariable("GH_TOKEN");
+
+  const { checksumPath, vsixPath } = verifyReleaseAssets();
+  const result = childProcess.spawnSync(
+    "gh",
+    ["release", "upload", releaseTag, vsixPath, checksumPath, "--clobber"],
+    {
+      env: process.env,
+      stdio: "inherit",
+    },
+  );
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  if (result.status !== 0) {
+    throw new Error(`gh release upload exited with status ${result.status}.`);
+  }
+}
+
 function findSingleFile(directory, extension) {
   const files = fs
     .readdirSync(directory, { withFileTypes: true })
@@ -84,5 +118,8 @@ function readExpectedDigest(checksumPath) {
 }
 
 function sha256File(filePath) {
-  return crypto.createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
+  return crypto
+    .createHash("sha256")
+    .update(fs.readFileSync(filePath))
+    .digest("hex");
 }
