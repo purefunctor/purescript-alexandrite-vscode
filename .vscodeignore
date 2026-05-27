@@ -18,3 +18,5 @@ contributing.md
 .travis.yml
 esbuild.js
 node_modules
+scripts/**
+*.vsix

@@ -13,9 +13,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  CARGO_TERM_COLOR: always
-
 jobs:
   node:
     name: Unit tests
@@ -44,12 +41,31 @@ jobs:
         run: npm run test:unit
 
   integration:
-    name: Integration tests
-    runs-on: ubuntu-latest
+    name: Integration tests (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
     needs: node
 
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: Linux
+            os: ubuntu-24.04
+            alexandrite-asset: purescript-alexandrite-x86_64-unknown-linux-gnu.tar.gz
+            alexandrite-executable: purescript-alexandrite
+            test-command: xvfb-run -a npm run test:integration
+          - platform: macOS
+            os: macos-14
+            alexandrite-asset: purescript-alexandrite-universal-apple-darwin.tar.gz
+            alexandrite-executable: purescript-alexandrite
+            test-command: npm run test:integration
+          - platform: Windows
+            os: windows-2022
+            alexandrite-asset: purescript-alexandrite-x86_64-pc-windows-msvc.zip
+            alexandrite-executable: purescript-alexandrite.exe
+            test-command: npm run test:integration
+
     env:
-      CARGO_TARGET_DIR: ${{ github.workspace }}/target/purescript-analyzer
       VSCODE_VERSION: 1.98.0
 
     steps:
@@ -65,42 +81,24 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Rust toolchain
-        run: rustup update stable && rustup default stable
-
-      - name: Cache Cargo artifacts
-        uses: Swatinem/rust-cache@v2.9.1
-        with:
-          cache-bin: false
-          prefix-key: purescript-analyzer
-
-      - name: Resolve Alexandrite revision
+      - name: Resolve latest Alexandrite release
         id: alexandrite
-        run: |
-          revision="$(git ls-remote https://github.com/purefunctor/purescript-alexandrite.git refs/heads/main | cut -f1)"
-          test -n "$revision"
-          echo "revision=$revision" >> "$GITHUB_OUTPUT"
-
-      - name: Cache Alexandrite binary
-        id: alexandrite-cache
-        uses: actions/cache@v5
-        with:
-          path: ~/.cargo/bin/purescript-analyzer
-          key: purescript-analyzer-${{ runner.os }}-${{ steps.alexandrite.outputs.revision }}
+        env:
+          RELEASE_ASSET: ${{ matrix.alexandrite-asset }}
+          RELEASE_REPOSITORY: purefunctor/purescript-alexandrite
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/resolve-latest-release-assets.mjs
 
       - name: Install Alexandrite
-        if: steps.alexandrite-cache.outputs.cache-hit != 'true'
-        run: |
-          cargo install \
-            --git https://github.com/purefunctor/purescript-alexandrite \
-            --rev "${{ steps.alexandrite.outputs.revision }}" \
-            --locked \
-            purescript-analyzer
-
-      - name: Configure Alexandrite path
-        run: |
-          test -x "$HOME/.cargo/bin/purescript-analyzer"
-          echo "ALEXANDRITE_PATH=$HOME/.cargo/bin/purescript-analyzer" >> "$GITHUB_ENV"
+        env:
+          RELEASE_ASSET: ${{ matrix.alexandrite-asset }}
+          RELEASE_DIGEST: ${{ steps.alexandrite.outputs.digest }}
+          RELEASE_EXECUTABLE: ${{ matrix.alexandrite-executable }}
+          RELEASE_EXECUTABLE_ENVIRONMENT_VARIABLE: ALEXANDRITE_PATH
+          RELEASE_REPOSITORY: purefunctor/purescript-alexandrite
+          RELEASE_TAG: ${{ steps.alexandrite.outputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/install-release-asset.mjs
 
       - name: Cache VS Code test dependencies
         uses: actions/cache@v5
@@ -111,4 +109,40 @@ jobs:
           key: vscode-test-${{ runner.os }}-${{ env.VSCODE_VERSION }}-language-purescript
 
       - name: Run integration tests
-        run: xvfb-run -a npm run test:integration
+        run: ${{ matrix.test-command }}
+
+  package:
+    name: Package extension
+    runs-on: ubuntu-latest
+    needs: integration
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Package extension
+        run: npm run package
+
+      - name: Prepare release assets
+        run: node scripts/manage-release-assets.mjs prepare
+
+      - name: Verify release assets
+        run: node scripts/manage-release-assets.mjs verify
+
+      - name: Upload packaged extension
+        uses: actions/upload-artifact@v7
+        with:
+          name: vscode-extension-${{ github.sha }}
+          path: |
+            release/*.vsix
+            release/*.sha256
+          if-no-files-found: error
